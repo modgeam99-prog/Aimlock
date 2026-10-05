@@ -2,37 +2,33 @@ name: Build SO
 on: [push, workflow_dispatch]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Install Android SDK
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y unzip wget cmake
+      - name: Download NDK
         run: |
-          sudo mkdir -p /opt/android-sdk/cmdline-tools
-          cd /opt/android-sdk/cmdline-tools
-          sudo wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-          sudo unzip -q cmdline-tools.zip
-          sudo mv cmdline-tools latest
-          echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> $GITHUB_ENV
-      - name: Install NDK
-        run: |
-          yes | sudo /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;21.4.7075529" > /dev/null
-          echo "NDK=/opt/android-sdk/ndk/21.4.7075529" >> $GITHUB_ENV
+          cd /tmp
+          wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+          unzip -q android-ndk-r21e-linux-x86_64.zip
+          mv android-ndk-r21e $HOME/ndk
+          echo "NDK=$HOME/ndk" >> $GITHUB_ENV
       - name: Build arm64
         run: |
           $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android23-clang++ \
             -shared -O3 -fPIC -std=c++17 \
             -o libaimlock-arm64.so aimlock.cpp \
+            -I$NDK/sysroot/usr/include \
+            -I$NDK/sysroot/usr/include/aarch64-linux-android \
             -landroid -llog -lmediandk
       - name: Build armv7
         run: |
           $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi23-clang++ \
             -shared -O3 -fPIC -std=c++17 \
             -o libaimlock-armv7.so aimlock.cpp \
+            -I$NDK/sysroot/usr/include \
+            -I$NDK/sysroot/usr/include/arm-linux-androideabi \
             -landroid -llog -lmediandk
       - uses: actions/upload-artifact@v4
         with:

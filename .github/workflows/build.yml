@@ -1,39 +1,37 @@
-name: Build SO
-on: [push, workflow_dispatch]
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Install deps
-        run: sudo apt-get update -y && sudo apt-get install -y unzip wget
-      - name: Download NDK r25c
-        run: |
-          cd $HOME
-          wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
-          unzip -q android-ndk-r25c-linux.zip
-          mv android-ndk-r25c ndk
-          echo "NDK=$HOME/ndk" >> $GITHUB_ENV
-      - name: Verify NDK
-        run: |
-          ls $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ | head -20
-      - name: Build arm64
-        run: |
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++ \
-            -shared -O3 -fPIC -std=c++17 \
-            -o libaimlock-arm64.so aimlock.cpp \
-            -landroid -llog -lmediandk
-      - name: Build armv7
-        run: |
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++ \
-            -shared -O3 -fPIC -std=c++17 \
-            -o libaimlock-armv7.so aimlock.cpp \
-            -landroid -llog -lmediandk
-      - name: List output
-        run: ls -la *.so
-      - uses: actions/upload-artifact@v4
-        with:
-          name: aimlock-so
-          path: |
-            libaimlock-arm64.so
-            libaimlock-armv7.so
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm test --if-present
+
+    - name: Build project
+      run: npm run build --if-present
+
+    - name: Lint code
+      run: npm run lint --if-present

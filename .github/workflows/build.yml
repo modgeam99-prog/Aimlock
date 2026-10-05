@@ -6,30 +6,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y unzip wget cmake
-      - name: Download NDK
+        run: sudo apt-get update -y && sudo apt-get install -y unzip wget
+      - name: Download NDK r25c
         run: |
-          cd /tmp
-          wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
-          unzip -q android-ndk-r21e-linux-x86_64.zip
-          mv android-ndk-r21e $HOME/ndk
+          cd $HOME
+          wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+          unzip -q android-ndk-r25c-linux.zip
+          mv android-ndk-r25c ndk
           echo "NDK=$HOME/ndk" >> $GITHUB_ENV
+      - name: Verify NDK
+        run: |
+          ls $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ | head -20
       - name: Build arm64
         run: |
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android23-clang++ \
+          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++ \
             -shared -O3 -fPIC -std=c++17 \
             -o libaimlock-arm64.so aimlock.cpp \
-            -I$NDK/sysroot/usr/include \
-            -I$NDK/sysroot/usr/include/aarch64-linux-android \
             -landroid -llog -lmediandk
       - name: Build armv7
         run: |
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi23-clang++ \
+          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++ \
             -shared -O3 -fPIC -std=c++17 \
             -o libaimlock-armv7.so aimlock.cpp \
-            -I$NDK/sysroot/usr/include \
-            -I$NDK/sysroot/usr/include/arm-linux-androideabi \
             -landroid -llog -lmediandk
+      - name: List output
+        run: ls -la *.so
       - uses: actions/upload-artifact@v4
         with:
           name: aimlock-so

@@ -1,0 +1,35 @@
+name: Build SO
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+      - name: Install NDK
+        run: |
+          yes | sdkmanager --install "ndk;21.4.7075529"
+          echo "NDK=$ANDROID_SDK_ROOT/ndk/21.4.7075529" >> $GITHUB_ENV
+      - name: Build arm64
+        run: |
+          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android23-clang++ \
+            -shared -O3 -fPIC -std=c++17 \
+            -o libaimlock-arm64.so aimlock.cpp \
+            -landroid -llog -lmediandk
+      - name: Build armv7
+        run: |
+          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi23-clang++ \
+            -shared -O3 -fPIC -std=c++17 \
+            -o libaimlock-armv7.so aimlock.cpp \
+            -landroid -llog -lmediandk
+      - uses: actions/upload-artifact@v3
+        with:
+          name: aimlock-so
+          path: |
+            libaimlock-arm64.so
+            libaimlock-armv7.so
